@@ -25,12 +25,13 @@ def visualize_data(df):
 if __name__ == "__main__":
     # Load the dataset
     df = load_and_preprocess(DATA_FILE_BASE_PATH + "train_data.csv")
+    print(df.size)
 
     # Visualize missing data
     visualize_data(df)
-    df_temp = df.dropna()
-    visualize_data(df_temp)
+    # df_temp = df.dropna()
+    # visualize_data(df_temp)
 
     # droping only values in the SurvivalTime column
-    df_temp = df.dropna(subset=["SurvivalTime"])
+    # df_temp = df.dropna(subset=["SurvivalTime"])
 
