@@ -10,7 +10,7 @@ from model import (
     select_best_strategy, strategy_impute_missing, strategy_drop_rows, TRAIN_FILE_PATH,
     train_evaluate_custom_gd, train_evaluate_lasso, train_evaluate_ridge, gradient_descent_c_mse,
     train_and_evaluate_model, train_validate_split,
-    PREDICTION_COLUMN_NAME, TEST_FILE_PATH
+    PREDICTION_COLUMN_NAME, TEST_FILE_PATH, get_next_submission_filename
 )
 
 
@@ -302,7 +302,7 @@ if __name__ == "__main__":
     # Generate the next submission filename
     submission_filename = get_next_submission_filename(
         base_path="data",
-        prefix="cMSE-baseline-submission",
+        prefix="polySubmission",
         extension=".csv"
     )
     print(f"Generated Submission Filename: {submission_filename}")
