@@ -1,27 +1,44 @@
-import pandas as pd
-import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 import missingno as msno
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
 
 # Constants
 DATA_FILE_BASE_PATH = "data/"
-FEATURE_COLUMN_NAMES = ["Age", "Gender", "Stage", "GeneticRisk", "TreatmentType", "ComorbidityIndex", "TreatmentResponse"]
+FEATURE_COLUMN_NAMES = ["Age", "Gender", "Stage", "GeneticRisk", "TreatmentType", "ComorbidityIndex",
+                        "TreatmentResponse"]
 TARGET_COLUMN_NAMES = ["SurvivalTime", "Censored"]
 
-# Load and preprocess the dataset
+
 def load_and_preprocess(filename):
+    """
+    Load and preprocess the dataset from a CSV file.
+
+    Parameters:
+    filename (str): The path to the CSV file.
+
+    :Returns:
+    pd.DataFrame: The loaded and preprocessed DataFrame.
+    """
     df = pd.read_csv(filename)
     if df.columns[0] != "id":
         df = df.rename(columns={df.columns[0]: "id"})
     return df
 
-# Visualize missing data
+
 def visualize_missing_data(df, title="Missing Data Visualization"):
+    """
+    Visualize missing data in the DataFrame using bar, matrix, heatmap, and dendrogram plots.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame to visualize.
+    title (str): The title for the visualization.
+    """
     print(f"\n{title}")
     if df.empty or df.shape[1] == 0:
         print("DataFrame is empty or has no columns, skipping visualization.")
@@ -44,8 +61,15 @@ def visualize_missing_data(df, title="Missing Data Visualization"):
             msno.dendrogram(df)
             plt.show()
 
-# Visualize correlation heatmap
+
 def visualize_correlation(df, title="Correlation Heatmap"):
+    """
+    Visualize the correlation heatmap of the DataFrame.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame to visualize.
+    title (str): The title for the visualization.
+    """
     print(f"\n{title}")
     if df.empty or df.shape[1] == 0:
         print("DataFrame is empty or has no columns, skipping visualization.")
@@ -58,16 +82,19 @@ def visualize_correlation(df, title="Correlation Heatmap"):
     plt.show()
 
 
-
 def train_validate_test_split(df, train_percent=0.6, validate_percent=0.2, test_percentage=0.2, seed=None):
     """
     Split the DataFrame into training, validation, and test sets based on the specified fractions.
-    :param df:
-    :param train_percent:
-    :param validate_percent:
-    :param test_percentage:
-    :param seed:
-    :return:
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame to split.
+    train_percent (float): The fraction of data to use for training.
+    validate_percent (float): The fraction of data to use for validation.
+    test_percentage (float): The fraction of data to use for testing.
+    seed (int): The random seed for reproducibility.
+
+    Returns:
+    tuple: A tuple containing the training, validation, and test DataFrames.
     """
     assert train_percent + validate_percent + test_percentage == 1.0, "Fractions must sum to 1"
 
@@ -82,8 +109,17 @@ def train_validate_test_split(df, train_percent=0.6, validate_percent=0.2, test_
     return train, validate, test
 
 
-# Function to build and train the linear regression model
 def build_and_train_model(x_train, y_train):
+    """
+    Build and train a linear regression model using a pipeline with standardization.
+
+    Parameters:
+    x_train (pd.DataFrame): The feature matrix for training.
+    y_train (pd.Series): The target vector for training.
+
+    Returns:
+    sklearn.pipeline.Pipeline: The trained model pipeline.
+    """
     model_pipeline = Pipeline([
         ('scaler', StandardScaler()),  # Standardization
         ('regressor', LinearRegression())  # Linear regression model
@@ -92,8 +128,33 @@ def build_and_train_model(x_train, y_train):
     return model_pipeline
 
 
-# Main Execution
+def error_metric(y, y_hat, c):
+    """
+    Calculate the censored Mean Squared Error (cMSE).
+    Given by the professor.
+
+    Parameters:
+    y (pd.Series): The true survival time.
+    y_hat (pd.Series): The predicted survival time.
+    c (pd.Series): The censored variable.
+
+    Returns:
+    float: The cMSE value.
+    """
+    err = y - y_hat
+    err = (1 - c) * err ** 2 + c * np.maximum(0, err) ** 2
+    return np.sum(err) / err.shape[0]
+
+
 def plot_y_yhat(y_val, y_val_pred, title):
+    """
+    Plot the actual vs. predicted values for the validation set.
+
+    Parameters:
+    y_val (pd.Series): The actual values.
+    y_val_pred (pd.Series): The predicted values.
+    title (str): The title for the plot.
+    """
     plt.figure(figsize=(10, 6))
     plt.scatter(y_val, y_val_pred, color='blue')
     plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], 'k--', lw=4)
@@ -144,12 +205,13 @@ if __name__ == "__main__":
     # Visualize full correlation heatmap with all valid data
     visualize_correlation(df, "Full Correlation Heatmap (Valid Data)")
 
-    # Based on correclation heatmap, we can see that the features are not highly correlated with each other
+    # Based on correlation heatmap, we can see that the features are not highly correlated with each other
     # With that in mind will drop the Generic Risk and Gender
     existing_features = [col for col in existing_features if col not in ["GenericRisk", "Gender"]]
     print("Remaining features after dropping 'GenericRisk' and 'Gender':", existing_features)
 
-    df_train, df_validation, df_test = train_validate_test_split(df, train_percent=0.6, validate_percent=0.12, test_percentage=0.28, seed=42)
+    df_train, df_validation, df_test = train_validate_test_split(df, train_percent=0.6, validate_percent=0.12,
+                                                                 test_percentage=0.28, seed=42)
     print(f"Training set: {len(df_train)} samples")
     print(f"Validation set: {len(df_validation)} samples")
     print(f"Test set: {len(df_test)} samples")
