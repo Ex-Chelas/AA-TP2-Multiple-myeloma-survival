@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -22,43 +21,46 @@ def load_and_preprocess(filename):
     Parameters:
     filename (str): The path to the CSV file.
 
-    :Returns:
+    Returns:
     pd.DataFrame: The loaded and preprocessed DataFrame.
     """
     df = pd.read_csv(filename)
-    if df.columns[0] != "id":
+    if df.columns[0].lower() != "id":
         df = df.rename(columns={df.columns[0]: "id"})
     return df
 
 
-def visualize_missing_data(df, title="Missing Data Visualization"):
+def visualize_missing_data(df, title_prefix=""):
     """
-    Visualize missing data in the DataFrame using bar, matrix, heatmap, and dendrogram plots.
+    Visualize missing data in the DataFrame using various plots.
 
     Parameters:
     df (pd.DataFrame): The DataFrame to visualize.
-    title (str): The title for the visualization.
+    title_prefix (str): A prefix for plot titles to differentiate strategies.
     """
-    print(f"\n{title}")
     if df.empty or df.shape[1] == 0:
-        print("DataFrame is empty or has no columns, skipping visualization.")
+        print(f"{title_prefix} DataFrame is empty or has no columns, skipping visualization.")
         return
     plt.figure(figsize=(10, 6))
     msno.bar(df)
+    plt.title(f"{title_prefix} Missing Values Bar Plot")
     plt.show()
 
-    if df.isnull().sum().sum() > 0:  # Only show these if there are missing values
+    if df.isnull().sum().sum() > 0:  # Only show additional plots if there are missing values
         plt.figure(figsize=(10, 6))
         msno.matrix(df)
+        plt.title(f"{title_prefix} Missing Values Matrix")
         plt.show()
 
         plt.figure(figsize=(10, 6))
         msno.heatmap(df)
+        plt.title(f"{title_prefix} Missing Values Heatmap")
         plt.show()
 
         if df.shape[0] > 1:  # Dendrogram requires at least 2 rows
             plt.figure(figsize=(10, 6))
             msno.dendrogram(df)
+            plt.title(f"{title_prefix} Missing Values Dendrogram")
             plt.show()
 
 
@@ -70,43 +72,42 @@ def visualize_correlation(df, title="Correlation Heatmap"):
     df (pd.DataFrame): The DataFrame to visualize.
     title (str): The title for the visualization.
     """
-    print(f"\n{title}")
     if df.empty or df.shape[1] == 0:
-        print("DataFrame is empty or has no columns, skipping visualization.")
+        print("DataFrame is empty or has no columns, skipping correlation visualization.")
         return
 
     correlation_matrix = df.corr()  # Compute correlations for all variables
     plt.figure(figsize=(12, 10))
-    sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", cbar=True, fmt=".2f", vmin=-1, vmax=1)  # Adjust scale
+    sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", cbar=True, fmt=".2f", vmin=-1, vmax=1)
     plt.title(title)
     plt.show()
 
 
-def train_validate_test_split(df, train_percent=0.6, validate_percent=0.2, test_percentage=0.2, seed=None):
+def train_validate_split(df, train_size=0.6, validate_size=0.2, test_size=0.2, seed=42):
     """
-    Split the DataFrame into training, validation, and test sets based on the specified fractions.
+    Split the DataFrame into training, validation, and test sets.
 
     Parameters:
     df (pd.DataFrame): The DataFrame to split.
-    train_percent (float): The fraction of data to use for training.
-    validate_percent (float): The fraction of data to use for validation.
-    test_percentage (float): The fraction of data to use for testing.
-    seed (int): The random seed for reproducibility.
+    train_size (float): Proportion of the dataset to include in the train split.
+    validate_size (float): Proportion of the dataset to include in the validation split.
+    test_size (float): Proportion of the dataset to include in the test split.
+    seed (int): Random seed for reproducibility.
 
     Returns:
-    tuple: A tuple containing the training, validation, and test DataFrames.
+    tuple: Training, validation, and test DataFrames.
     """
-    assert train_percent + validate_percent + test_percentage == 1.0, "Fractions must sum to 1"
+    assert train_size + validate_size + test_size == 1.0, "Train, validate, and test sizes must sum to 1."
 
-    np.random.seed(seed)
-    perm = np.random.permutation(df.index)
-    m = len(df.index)
-    train_end = int(train_percent * m)
-    validate_end = int(validate_percent * m) + train_end
-    train = df.loc[perm[:train_end]]
-    validate = df.loc[perm[train_end:validate_end]]
-    test = df.loc[perm[validate_end:]]
-    return train, validate, test
+    df_shuffled = df.sample(frac=1, random_state=seed).reset_index(drop=True)
+    train_end = int(train_size * len(df_shuffled))
+    validate_end = train_end + int(validate_size * len(df_shuffled))
+
+    df_train = df_shuffled.iloc[:train_end]
+    df_validate = df_shuffled.iloc[train_end:validate_end]
+    df_test = df_shuffled.iloc[validate_end:]
+
+    return df_train, df_validate, df_test
 
 
 def build_and_train_model(x_train, y_train):
@@ -131,7 +132,6 @@ def build_and_train_model(x_train, y_train):
 def error_metric(y, y_hat, c):
     """
     Calculate the censored Mean Squared Error (cMSE).
-    Given by the professor.
 
     Parameters:
     y (pd.Series): The true survival time.
@@ -156,99 +156,276 @@ def plot_y_yhat(y_val, y_val_pred, title):
     title (str): The title for the plot.
     """
     plt.figure(figsize=(10, 6))
-    plt.scatter(y_val, y_val_pred, color='blue')
-    plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], 'k--', lw=4)
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
+    plt.scatter(y_val, y_val_pred, color='blue', alpha=0.5)
+    plt.plot([y_val.min(), y_val.max()], [y_val.min(), y_val.max()], 'k--', lw=2)
+    plt.xlabel('Actual Survival Time')
+    plt.ylabel('Predicted Survival Time')
     plt.title(title)
     plt.show()
 
 
-if __name__ == "__main__":
-    # Load dataset
-    df = load_and_preprocess(DATA_FILE_BASE_PATH + "train_data.csv")
+def prepare_submission(test_df, predictions, filename):
+    """
+    Prepare the submission file for Kaggle.
 
-    # Visualize original data
-    visualize_missing_data(df, "Original Data Visualization")
+    Parameters:
+    test_df (pd.DataFrame): The test DataFrame containing 'id'.
+    predictions (np.array): The predicted survival times.
+    filename (str): The filename for the submission CSV.
+    """
+    submission_df = pd.DataFrame({
+        'id': test_df['id'],
+        '0': predictions  # Changed from 'SurvivalTime' to '0' to match sample submission
+    })
+    submission_df.to_csv(filename, index=False)
+    print(f"Submission saved to {filename}")
 
-    # Drop rows with missing SurvivalTime
-    df = df.dropna(subset=["SurvivalTime"])
 
-    # Drop censored rows (Censored == 1)
-    df = df[df["Censored"] == 0]
+def clean_dataframe(df, feature_columns):
+    """
+    Clean the DataFrame by dropping rows with missing SurvivalTime or censored data points.
 
-    # Fill missing values instead of dropping columns
+    Parameters:
+    df (pd.DataFrame): The DataFrame to clean.
+    feature_columns (list): List of feature column names.
+
+    Returns:
+    pd.DataFrame: The cleaned DataFrame.
+    list: The list of features used.
+    """
+    # Drop rows with missing SurvivalTime or censored data points
+    df_clean = df.dropna(subset=["SurvivalTime", "Censored"])
+    df_clean = df_clean[df_clean["Censored"] == 0]  # Keep only uncensored data
+
+    # Update the feature list after cleaning
+    existing_features = [col for col in feature_columns if col in df_clean.columns]
+    return df_clean, existing_features
+
+
+def strategy_drop_rows(df):
+    """
+    Strategy 1: Drop rows with any missing data and drop censored data points.
+
+    Parameters:
+    df (pd.DataFrame): The original DataFrame.
+
+    Returns:
+    pd.DataFrame: The cleaned DataFrame after dropping rows.
+    list: The list of features used.
+    """
+    print("\n--- Strategy 1: Drop Rows with Missing Data ---")
+
+    # Visualize missing data before cleaning
+    visualize_missing_data(df, title_prefix="Strategy 1")
+
+    # Drop rows with any missing values in feature columns
+    df_clean = df.dropna(subset=FEATURE_COLUMN_NAMES)
+    print(f"DataFrame shape after dropping rows with missing feature values: {df_clean.shape}")
+
+    # Clean the DataFrame by dropping censored data points and missing SurvivalTime
+    df_clean, existing_features = clean_dataframe(df_clean, FEATURE_COLUMN_NAMES)
+    print(f"Features after dropping rows: {existing_features}")
+
+    return df_clean, existing_features
+
+
+def strategy_impute_missing(df):
+    """
+    Strategy 2: Impute missing values with the mean and drop censored data points.
+
+    Parameters:
+    df (pd.DataFrame): The original DataFrame.
+
+    Returns:
+    pd.DataFrame: The cleaned DataFrame after imputation and dropping rows.
+    list: The list of features used.
+    """
+    print("\n--- Strategy 2: Impute Missing Values ---")
+
+    # Visualize missing data before cleaning
+    visualize_missing_data(df, title_prefix="Strategy 2")
+
+    # Impute missing values with the mean for feature columns
+    df_imputed = df.copy()
     for col in FEATURE_COLUMN_NAMES:
-        if col in df.columns:
-            df[col] = df[col].fillna(df[col].mean())  # Replace missing values with mean
+        if col in df_imputed.columns:
+            mean_value = df_imputed[col].mean()
+            df_imputed[col] = df_imputed[col].fillna(mean_value)
+            print(f"Imputed missing values in '{col}' with mean value {mean_value:.2f}")
 
-    # Check remaining data
-    print(f"Remaining rows: {len(df)}")
-    print(f"Remaining columns: {df.columns.tolist()}")
+    # Clean the DataFrame by dropping censored data points and missing SurvivalTime
+    df_imputed, existing_features = clean_dataframe(df_imputed, FEATURE_COLUMN_NAMES)
+    print(f"Features after imputation: {existing_features}")
 
-    # Ensure valid feature columns
-    existing_features = [col for col in FEATURE_COLUMN_NAMES if col in df.columns]
-    if not existing_features:
-        raise ValueError("No valid features found in the DataFrame after cleaning!")
+    return df_imputed, existing_features
 
-    # Pairplot for valid features and SurvivalTime
-    sns.pairplot(df, vars=existing_features + ["SurvivalTime"])
-    plt.title("Pairplot for Remaining Features and SurvivalTime")
-    plt.show()
 
-    # Define the feature matrix X and target vector y
-    X = df[existing_features]
-    y = df["SurvivalTime"]
-    print("Feature matrix X shape:", X.shape)
-    print("Target vector y shape:", y.shape)
+def validate_model(model, df_validate, features, strategy_name, dataset_type="Validation"):
+    """
+    Validate the model and calculate cMSE for the dataset.
 
-    # Visualize full correlation heatmap with all valid data
-    visualize_correlation(df, "Full Correlation Heatmap (Valid Data)")
+    Parameters:
+    model (sklearn.pipeline.Pipeline): The trained model pipeline.
+    df_validate (pd.DataFrame): The validation/test DataFrame.
+    features (list): List of feature column names.
+    strategy_name (str): Name of the strategy for logging.
+    dataset_type (str): Type of the dataset (Validation/Test).
 
-    # Based on correlation heatmap, we can see that the features are not highly correlated with each other
-    # With that in mind will drop the Generic Risk and Gender
-    existing_features = [col for col in existing_features if col not in ["GenericRisk", "Gender"]]
-    print("Remaining features after dropping 'GenericRisk' and 'Gender':", existing_features)
+    Returns:
+    float: The cMSE for the dataset.
+    """
+    X = df_validate[features]
+    y = df_validate["SurvivalTime"]
+    y_pred = model.predict(X)
 
-    df_train, df_validation, df_test = train_validate_test_split(df, train_percent=0.6, validate_percent=0.12,
-                                                                 test_percentage=0.28, seed=42)
-    print(f"Training set: {len(df_train)} samples")
-    print(f"Validation set: {len(df_validation)} samples")
-    print(f"Test set: {len(df_test)} samples")
+    # Calculate cMSE
+    censored = df_validate["Censored"]  # Should be all 0 for uncensored data
+    cMSE = error_metric(y, y_pred, censored)
+    print(f"{strategy_name} - {dataset_type} cMSE: {cMSE:.4f}")
 
-    # train the model based on the training set
-    x_train = df_train[existing_features]
+    # Plot predicted vs actual
+    plot_y_yhat(y, y_pred, f'{strategy_name} - {dataset_type} Predicted vs Actual')
+
+    return cMSE
+
+
+def train_evaluate(df, features, strategy_name):
+    """
+    Train and evaluate the model, then return cMSE.
+
+    Parameters:
+    df (pd.DataFrame): The cleaned DataFrame.
+    features (list): List of feature column names.
+    strategy_name (str): Name of the strategy for logging.
+
+    Returns:
+    dict: Dictionary containing validation and test cMSE.
+    """
+    print(f"\n--- Training and Evaluating Model for {strategy_name} ---")
+
+    # Split the data into training, validation, and test sets
+    df_train, df_validate, df_test = train_validate_split(df, train_size=0.6, validate_size=0.2, test_size=0.2,
+                                                          seed=42)
+    print(f"{strategy_name} - Training set: {len(df_train)} samples")
+    print(f"{strategy_name} - Validation set: {len(df_validate)} samples")
+    print(f"{strategy_name} - Test set: {len(df_test)} samples")
+
+    # Define the feature matrix and target vector for training
+    X_train = df_train[features]
     y_train = df_train["SurvivalTime"]
-    model = build_and_train_model(x_train, y_train)
 
-    # Validate the model based on the validation set
-    x_val = df_validation[existing_features]
-    y_val = df_validation["SurvivalTime"]
-    y_val_pred = model.predict(x_val)
+    # Train the model
+    model = build_and_train_model(X_train, y_train)
 
-    # Calculate MSE for validation set
-    val_mse = mean_squared_error(y_val, y_val_pred)
-    print(f"Validation MSE: {val_mse}")
+    # Validate the model
+    val_cMSE = validate_model(model, df_validate, features, strategy_name, dataset_type="Validation")
 
-    # Visualize the predicted vs actual values for the validation set
-    plot_y_yhat(y_val, y_val_pred, 'Validation Predicted vs Expected')
+    # Evaluate on the hold-out test set
+    test_cMSE = validate_model(model, df_test, features, strategy_name, dataset_type="Test")
 
-    # Load test data and prepare it for prediction
-    # and drops all rows with missing values in all columns
-    test_data = load_and_preprocess(DATA_FILE_BASE_PATH + "test_data.csv")
-    test_data = test_data.dropna()
-    clean_test_data = test_data[existing_features]
+    return {
+        'strategy': strategy_name,
+        'validation_cMSE': val_cMSE,
+        'test_cMSE': test_cMSE
+    }
 
-    # Predict on the test data
-    y_test_pred = model.predict(clean_test_data)
 
-    # calculate the mse for the test data
-    y_test = df_test["SurvivalTime"]
-    test_mse = mean_squared_error(y_test, y_test_pred)
-    print(f"Test MSE: {test_mse}")
+def select_best_strategy(strategy_results):
+    """
+    Select the best strategy based on the lowest Test cMSE.
 
-    # Convert the predictions to a DataFrame and store it as a CSV
-    y_test_pred_df = pd.DataFrame(y_test_pred, columns=['0'])
-    y_test_pred_df.insert(0, 'id', y_test_pred_df.index)
-    y_test_pred_df.to_csv(DATA_FILE_BASE_PATH + 'baseline-submission-01.csv', index=False)
-    print("Test predictions saved to test_predictions.csv")
+    Parameters:
+    strategy_results (list of dict): List containing cMSE results for each strategy.
+
+    Returns:
+    dict: The best strategy's details.
+    """
+    # Convert list of dicts to DataFrame for easier manipulation
+    results_df = pd.DataFrame(strategy_results)
+    print("\n--- Strategy Performance ---")
+    print(results_df)
+
+    # Find the strategy with the minimum Test cMSE
+    best_strategy = results_df.loc[results_df['test_cMSE'].idxmin()]
+    print(f"\nBest Strategy Selected: {best_strategy['strategy']} with Test cMSE: {best_strategy['test_cMSE']:.4f}")
+
+    return best_strategy
+
+
+if __name__ == "__main__":
+    # Load training dataset
+    df_original = load_and_preprocess(DATA_FILE_BASE_PATH + "train_data.csv")
+    print("Original DataFrame shape:", df_original.shape)
+
+    # Implement Strategy 1: Drop rows with any missing data
+    df_strategy1, features_strategy1 = strategy_drop_rows(df_original.copy())
+    num_points_strategy1 = len(df_strategy1)
+    print(f"Number of data points after Strategy 1: {num_points_strategy1}")
+
+    # Implement Strategy 2: Impute missing values
+    df_strategy2, features_strategy2 = strategy_impute_missing(df_original.copy())
+    num_points_strategy2 = len(df_strategy2)
+    print(f"Number of data points after Strategy 2: {num_points_strategy2}")
+
+    # Train and evaluate for Strategy 1: Drop rows
+    result_s1 = train_evaluate(df_strategy1, features_strategy1, "Strategy 1: Drop Rows")
+
+    # Train and evaluate for Strategy 2: Impute missing values
+    result_s2 = train_evaluate(df_strategy2, features_strategy2, "Strategy 2: Impute Missing Values")
+
+    # Collect all strategy results
+    strategy_results = [result_s1, result_s2]
+
+    # Compare the results and select the best strategy
+    best_strategy = select_best_strategy(strategy_results)
+    selected_strategy_name = best_strategy['strategy']
+    selected_test_cMSE = best_strategy['test_cMSE']
+
+    # Determine which features to use based on the selected strategy
+    if selected_strategy_name == "Strategy 1: Drop Rows":
+        selected_features = features_strategy1
+        selected_df = df_strategy1
+    else:
+        selected_features = features_strategy2
+        selected_df = df_strategy2
+
+    # Load Kaggle test data
+    kaggle_test_data = load_and_preprocess(DATA_FILE_BASE_PATH + "test_data.csv")
+    print("\nKaggle Test DataFrame shape:", kaggle_test_data.shape)
+
+    # Preprocess Kaggle test data based on the selected strategy
+    if selected_strategy_name == "Strategy 1: Drop Rows":
+        # Strategy 1: Drop rows with any missing feature values
+        kaggle_test_clean = kaggle_test_data.dropna(subset=selected_features)
+        print(f"Dropped rows with missing feature values in Kaggle test data: {kaggle_test_clean.shape}")
+    else:
+        # Strategy 2: Impute missing values with mean
+        kaggle_test_clean = kaggle_test_data.copy()
+        for col in selected_features:
+            if col in kaggle_test_clean.columns:
+                mean_value = selected_df[col].mean()
+                kaggle_test_clean[col] = kaggle_test_clean[col].fillna(mean_value)
+                print(f"Imputed missing values in '{col}' with mean value {mean_value:.2f} in Kaggle test data")
+
+        # Drop any remaining rows with missing values in the selected features (if any)
+        kaggle_test_clean = kaggle_test_clean.dropna(subset=selected_features)
+        print(f"Kaggle Test DataFrame shape after imputation: {kaggle_test_clean.shape}")
+
+    # Ensure that the test data has the required features
+    missing_features = [feature for feature in selected_features if feature not in kaggle_test_clean.columns]
+    if missing_features:
+        raise ValueError(f"The following required features are missing in the Kaggle test data: {missing_features}")
+
+    # Extract features for prediction
+    X_kaggle_test = kaggle_test_clean[selected_features]
+
+    # Retrain the model on the entire cleaned training data for the selected strategy
+    model_selected = build_and_train_model(selected_df[selected_features], selected_df["SurvivalTime"])
+    print(f"\nRetrained model using {selected_strategy_name}.")
+
+    # Predict on the Kaggle test data
+    y_kaggle_pred = model_selected.predict(X_kaggle_test)
+
+    # Prepare and save the submission file
+    submission_filename = DATA_FILE_BASE_PATH + 'baseline-submission-01.csv'
+    prepare_submission(kaggle_test_clean, y_kaggle_pred, submission_filename)
