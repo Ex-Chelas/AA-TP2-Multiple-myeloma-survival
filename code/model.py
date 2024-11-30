@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import missingno as msno
 import numpy as np
@@ -24,6 +26,41 @@ TARGET_COLUMNS = ["SurvivalTime", "Censored"]
 ID_COLUMN_NAME = "id"
 PREDICTION_COLUMN_NAME = "SurvivalTime"
 
+
+def get_next_submission_filename(base_path, prefix, extension):
+    """
+    Generate the next submission filename by incrementing the numerical suffix.
+
+    Parameters:
+    base_path (str): The directory where submission files are stored.
+    prefix (str): The prefix of the submission file (e.g., 'submission').
+    extension (str): The file extension (e.g., '.csv').
+
+    Returns:
+    str: The next submission filename with an incremented number.
+    """
+    if not os.path.isdir(f"{base_path}/{prefix}"):
+        os.mkdir(f"{base_path}/{prefix}")
+
+    # Initialize the maximum number found
+    max_number = 0
+
+    # Scan the directory for files
+    with os.scandir(f"{base_path}/{prefix}") as entries:
+        for entry in entries:
+            if entry.is_file() and entry.name.startswith(prefix) and entry.name.endswith(extension):
+                # Extract the numerical suffix
+                try:
+                    suffix = entry.name[len(prefix) + 1 : -len(extension)]
+                    number = int(suffix)
+                    max_number = max(max_number, number)
+                except (ValueError, IndexError):
+                    # Ignore files that don't match the expected pattern
+                    continue
+
+    # Compute the next number and generate the filename
+    next_number = max_number + 1
+    return f"{base_path}/{prefix}/{prefix}-{next_number:02d}{extension}"
 
 def load_and_preprocess(filename):
     """
@@ -121,26 +158,6 @@ def train_validate_split(df, train_size=0.6, validate_size=0.2, test_size=0.2, s
 
     print(f"Data split into Training: {df_train.shape}, Validation: {df_validate.shape}, Test: {df_test.shape}")
     return df_train, df_validate, df_test
-
-
-def build_and_train_model(x_train, y_train):
-    """
-    Build and train a linear regression model using a pipeline with standardization.
-
-    Parameters:
-    x_train: The feature matrix for training.
-    y_train: The target vector for training.
-
-    Returns:
-    The trained model pipeline.
-    """
-    model_pipeline = Pipeline([
-        ('scaler', StandardScaler()),  # Standardization
-        ('regressor', LinearRegression())  # Linear regression model
-    ])
-    model_pipeline.fit(x_train, y_train)
-    print("Scikit-learn Linear Regression model trained successfully.")
-    return model_pipeline
 
 
 def error_metric(y, y_hat, c):

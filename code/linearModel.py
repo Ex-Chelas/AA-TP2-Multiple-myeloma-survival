@@ -2,6 +2,8 @@ import os
 
 import numpy as np
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from model import (
     load_and_preprocess, prepare_submission,
@@ -12,34 +14,26 @@ from model import (
 )
 
 
-def get_next_submission_filename(base_path, prefix, extension):
+
+def build_and_train_model(x_train, y_train):
     """
-    Generate the next submission filename by incrementing the numerical suffix.
+    Build and train a linear regression model using a pipeline with standardization.
 
     Parameters:
-    base_path (str): The directory where submission files are stored.
-    prefix (str): The prefix of the submission file.
-    extension (str): The file extension (e.g., '.csv').
+    x_train: The feature matrix for training.
+    y_train: The target vector for training.
 
     Returns:
-    str: The next submission filename with an incremented number.
+    The trained model pipeline.
     """
-    existing_files = [f for f in os.listdir(base_path) if f.startswith(prefix) and f.endswith(extension)]
-    if not existing_files:
-        return f"{prefix}-01{extension}"
-    else:
-        # Extract numerical parts from filenames
-        numbers = []
-        for f in existing_files:
-            try:
-                num = int(f.replace(prefix + "-", "").replace(extension, ""))
-                numbers.append(num)
-            except ValueError:
-                continue  # Skip files that don't match the expected pattern
-        if not numbers:
-            return f"{prefix}-01{extension}"
-        next_number = max(numbers) + 1
-        return f"{prefix}-{next_number:02d}{extension}"
+    model_pipeline = Pipeline([
+        ('scaler', StandardScaler()),  # Standardization
+        ('regressor', LinearRegression())  # Linear regression model
+    ])
+    model_pipeline.fit(x_train, y_train)
+    print("Scikit-learn Linear Regression model trained successfully.")
+    return model_pipeline
+
 
 
 if __name__ == "__main__":
@@ -228,22 +222,24 @@ if __name__ == "__main__":
     print("Kaggle Test DataFrame shape:", kaggle_test_data.shape)
 
     # Preprocess Kaggle test data based on the selected strategy
-    if "Strategy 1: Drop Rows" in selected_strategy_name:
+    if False:#"Strategy 1: Drop Rows" in selected_strategy_name:
         # Strategy 1: Drop rows with any missing feature values
         kaggle_test_clean = kaggle_test_data.dropna(subset=selected_features)
         print(f"Dropped rows with missing feature values in Kaggle test data: {kaggle_test_clean.shape}")
     else:
-        # Strategy 2: Impute missing values with mean
+        # Calculate the mean for each column in df_original
+        column_means = df_original.mean()
+
+        # Create a copy of kaggle_test_data
         kaggle_test_clean = kaggle_test_data.copy()
+
+        # Impute missing values in kaggle_test_clean using the means from df_original
         for col in selected_features:
             if col in kaggle_test_clean.columns:
-                mean_value = selected_df[col].mean()
+                mean_value = column_means[col]  # Get mean from df_original
                 kaggle_test_clean[col] = kaggle_test_clean[col].fillna(mean_value)
-                print(f"Imputed missing values in '{col}' with mean value {mean_value:.2f} in Kaggle test data")
-
-        # Drop any remaining rows with missing values in the selected features (if any)
-        kaggle_test_clean = kaggle_test_clean.dropna(subset=selected_features)
-        print(f"Kaggle Test DataFrame shape after imputation: {kaggle_test_clean.shape}")
+                print(
+                    f"Imputed missing values in '{col}' with mean value {mean_value:.2f} from df_original in Kaggle test data")
 
     # Ensure that the test data has the required features
     missing_features = [feature for feature in selected_features if feature not in kaggle_test_clean.columns]
