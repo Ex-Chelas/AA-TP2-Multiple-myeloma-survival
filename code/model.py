@@ -13,6 +13,7 @@ from sklearn.preprocessing import StandardScaler
 DATA_FILE_BASE_PATH = "data/"
 TRAIN_FILE_PATH = DATA_FILE_BASE_PATH + "train_data.csv"
 TEST_FILE_PATH = DATA_FILE_BASE_PATH + "test_data.csv"
+SUBMISSION_EXTENSION = ".csv"
 
 BASELINE_SUBMISSION_FILE_PATH = DATA_FILE_BASE_PATH + "baseline-submission-01.csv"
 C_MSE_BASELINE_SUBMISSION_FILE_PATH = DATA_FILE_BASE_PATH + "cMSE-baseline-submission-02.csv"
