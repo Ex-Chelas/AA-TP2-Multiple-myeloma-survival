@@ -8,10 +8,18 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 # Constants
+# Files
 DATA_FILE_BASE_PATH = "data/"
+TRAIN_FILE_PATH = DATA_FILE_BASE_PATH + "train_data.csv"
+TEST_FILE_PATH = DATA_FILE_BASE_PATH + "test_data.csv"
+SUBMISSION_FILE_PATH = DATA_FILE_BASE_PATH + "baseline-submission-02.csv"
+
+# Columns
 FEATURE_COLUMN_NAMES = ["Age", "Gender", "Stage", "GeneticRisk", "TreatmentType", "ComorbidityIndex",
                         "TreatmentResponse"]
 TARGET_COLUMN_NAMES = ["SurvivalTime", "Censored"]
+ID_COLUMN_NAME = "id"
+PREDICTION_COLUMN_NAME = "SurvivalTime"
 
 
 def load_and_preprocess(filename):
@@ -25,8 +33,8 @@ def load_and_preprocess(filename):
     pd.DataFrame: The loaded and preprocessed DataFrame.
     """
     df = pd.read_csv(filename)
-    if df.columns[0].lower() != "id":
-        df = df.rename(columns={df.columns[0]: "id"})
+    if df.columns[0].lower() != ID_COLUMN_NAME:
+        df = df.rename(columns={df.columns[0]: ID_COLUMN_NAME})
     return df
 
 
@@ -174,8 +182,8 @@ def prepare_submission(test_df, predictions, filename):
     filename (str): The filename for the submission CSV.
     """
     submission_df = pd.DataFrame({
-        'id': test_df['id'],
-        '0': predictions  # Changed from 'SurvivalTime' to '0' to match sample submission
+        ID_COLUMN_NAME: test_df[ID_COLUMN_NAME],
+        '0': predictions
     })
     submission_df.to_csv(filename, index=False)
     print(f"Submission saved to {filename}")
@@ -194,11 +202,11 @@ def clean_dataframe(df, feature_columns):
     list: The list of features used.
     """
     # Drop rows with missing SurvivalTime or censored data points
-    df_clean = df.dropna(subset=["SurvivalTime", "Censored"])
+    df_clean = df.dropna(subset=TARGET_COLUMN_NAMES)
     df_clean = df_clean[df_clean["Censored"] == 0]  # Keep only uncensored data
 
     # Update the feature list after cleaning
-    existing_features = [col for col in feature_columns if col in df_clean.columns]
+    existing_features = [column for column in feature_columns if column in df_clean.columns]
     return df_clean, existing_features
 
 
@@ -247,11 +255,11 @@ def strategy_impute_missing(df):
 
     # Impute missing values with the mean for feature columns
     df_imputed = df.copy()
-    for col in FEATURE_COLUMN_NAMES:
-        if col in df_imputed.columns:
-            mean_value = df_imputed[col].mean()
-            df_imputed[col] = df_imputed[col].fillna(mean_value)
-            print(f"Imputed missing values in '{col}' with mean value {mean_value:.2f}")
+    for column in FEATURE_COLUMN_NAMES:
+        if column in df_imputed.columns:
+            mean = df_imputed[column].mean()
+            df_imputed[column] = df_imputed[column].fillna(mean)
+            print(f"Imputed missing values in '{column}' with mean value {mean:.2f}")
 
     # Clean the DataFrame by dropping censored data points and missing SurvivalTime
     df_imputed, existing_features = clean_dataframe(df_imputed, FEATURE_COLUMN_NAMES)
@@ -274,19 +282,19 @@ def validate_model(model, df_validate, features, strategy_name, dataset_type="Va
     Returns:
     float: The cMSE for the dataset.
     """
-    X = df_validate[features]
-    y = df_validate["SurvivalTime"]
-    y_pred = model.predict(X)
+    x = df_validate[features]
+    y = df_validate[PREDICTION_COLUMN_NAME]
+    y_pred = model.predict(x)
 
     # Calculate cMSE
     censored = df_validate["Censored"]  # Should be all 0 for uncensored data
-    cMSE = error_metric(y, y_pred, censored)
-    print(f"{strategy_name} - {dataset_type} cMSE: {cMSE:.4f}")
+    c_mse = error_metric(y, y_pred, censored)
+    print(f"{strategy_name} - {dataset_type} cMSE: {c_mse:.4f}")
 
     # Plot predicted vs actual
     plot_y_yhat(y, y_pred, f'{strategy_name} - {dataset_type} Predicted vs Actual')
 
-    return cMSE
+    return c_mse
 
 
 def train_evaluate(df, features, strategy_name):
@@ -311,26 +319,26 @@ def train_evaluate(df, features, strategy_name):
     print(f"{strategy_name} - Test set: {len(df_test)} samples")
 
     # Define the feature matrix and target vector for training
-    X_train = df_train[features]
-    y_train = df_train["SurvivalTime"]
+    x_train = df_train[features]
+    y_train = df_train[PREDICTION_COLUMN_NAME]
 
     # Train the model
-    model = build_and_train_model(X_train, y_train)
+    model = build_and_train_model(x_train, y_train)
 
     # Validate the model
-    val_cMSE = validate_model(model, df_validate, features, strategy_name, dataset_type="Validation")
+    val_c_mse = validate_model(model, df_validate, features, strategy_name, dataset_type="Validation")
 
     # Evaluate on the hold-out test set
-    test_cMSE = validate_model(model, df_test, features, strategy_name, dataset_type="Test")
+    test_c_mse = validate_model(model, df_test, features, strategy_name, dataset_type="Test")
 
     return {
         'strategy': strategy_name,
-        'validation_cMSE': val_cMSE,
-        'test_cMSE': test_cMSE
+        'validation_cMSE': val_c_mse,
+        'test_cMSE': test_c_mse
     }
 
 
-def select_best_strategy(strategy_results):
+def select_best_strategy(results):
     """
     Select the best strategy based on the lowest Test cMSE.
 
@@ -340,21 +348,21 @@ def select_best_strategy(strategy_results):
     Returns:
     dict: The best strategy's details.
     """
-    # Convert list of dicts to DataFrame for easier manipulation
-    results_df = pd.DataFrame(strategy_results)
+    # Convert a list of dicts to DataFrame for easier manipulation
+    results_df = pd.DataFrame(results)
     print("\n--- Strategy Performance ---")
     print(results_df)
 
     # Find the strategy with the minimum Test cMSE
-    best_strategy = results_df.loc[results_df['test_cMSE'].idxmin()]
-    print(f"\nBest Strategy Selected: {best_strategy['strategy']} with Test cMSE: {best_strategy['test_cMSE']:.4f}")
+    best = results_df.loc[results_df['test_cMSE'].idxmin()]
+    print(f"\nBest Strategy Selected: {best['strategy']} with Test cMSE: {best['test_cMSE']:.4f}")
 
-    return best_strategy
+    return best
 
 
 if __name__ == "__main__":
     # Load training dataset
-    df_original = load_and_preprocess(DATA_FILE_BASE_PATH + "train_data.csv")
+    df_original = load_and_preprocess(TRAIN_FILE_PATH)
     print("Original DataFrame shape:", df_original.shape)
 
     # Implement Strategy 1: Drop rows with any missing data
@@ -390,7 +398,7 @@ if __name__ == "__main__":
         selected_df = df_strategy2
 
     # Load Kaggle test data
-    kaggle_test_data = load_and_preprocess(DATA_FILE_BASE_PATH + "test_data.csv")
+    kaggle_test_data = load_and_preprocess(TEST_FILE_PATH)
     print("\nKaggle Test DataFrame shape:", kaggle_test_data.shape)
 
     # Preprocess Kaggle test data based on the selected strategy
@@ -426,6 +434,4 @@ if __name__ == "__main__":
     # Predict on the Kaggle test data
     y_kaggle_pred = model_selected.predict(X_kaggle_test)
 
-    # Prepare and save the submission file
-    submission_filename = DATA_FILE_BASE_PATH + 'baseline-submission-01.csv'
-    prepare_submission(kaggle_test_clean, y_kaggle_pred, submission_filename)
+    prepare_submission(kaggle_test_clean, y_kaggle_pred, SUBMISSION_FILE_PATH)
