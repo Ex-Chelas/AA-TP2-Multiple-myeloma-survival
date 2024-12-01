@@ -5,9 +5,7 @@ import missingno as msno
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from sklearn.linear_model import LinearRegression, Lasso, Ridge
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Lasso, Ridge
 
 # Constants
 DATA_FILE_BASE_PATH = "data/"
@@ -52,7 +50,7 @@ def get_next_submission_filename(base_path, prefix, extension):
             if entry.is_file() and entry.name.startswith(prefix) and entry.name.endswith(extension):
                 # Extract the numerical suffix
                 try:
-                    suffix = entry.name[len(prefix) + 1 : -len(extension)]
+                    suffix = entry.name[len(prefix) + 1: -len(extension)]
                     number = int(suffix)
                     max_number = max(max_number, number)
                 except (ValueError, IndexError):
@@ -62,6 +60,7 @@ def get_next_submission_filename(base_path, prefix, extension):
     # Compute the next number and generate the filename
     next_number = max_number + 1
     return f"{base_path}/{prefix}/{prefix}-{next_number:02d}{extension}"
+
 
 def load_and_preprocess(filename):
     """
