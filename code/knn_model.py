@@ -6,8 +6,8 @@ from sklearn.neighbors import KNeighborsRegressor
 
 from model import (
     prepare_submission, SUBMISSION_EXTENSION, PREDICTION_COLUMN_NAME, plot_y_yhat, load_and_preprocess,
-    strategy_drop_rows, TRAIN_FILE_PATH, strategy_impute_missing, TEST_FILE_PATH, DATA_FILE_BASE_PATH,
-    error_metric, get_next_submission_filename, train_validate_split
+    strategy_drop_rows, TRAIN_FILE_PATH, strategy_impute_missing, TEST_FILE_PATH, DATA_FILE_BASE_PATH, error_metric,
+    get_next_submission_filename, train_validate_split
 )
 
 # Constants

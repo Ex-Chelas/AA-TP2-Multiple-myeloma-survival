@@ -1,18 +1,13 @@
-import os
-
 import numpy as np
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from model import (
-    load_and_preprocess, prepare_submission,
-    select_best_strategy, strategy_impute_missing, strategy_drop_rows, TRAIN_FILE_PATH,
-    train_evaluate_custom_gd, train_evaluate_lasso, train_evaluate_ridge, gradient_descent_c_mse,
-    train_and_evaluate_model, train_validate_split,
-    PREDICTION_COLUMN_NAME, TEST_FILE_PATH
+    load_and_preprocess, prepare_submission, select_best_strategy, strategy_impute_missing, strategy_drop_rows,
+    TRAIN_FILE_PATH, train_evaluate_custom_gd, train_evaluate_lasso, train_evaluate_ridge, gradient_descent_c_mse,
+    train_and_evaluate_model, train_validate_split, PREDICTION_COLUMN_NAME, TEST_FILE_PATH
 )
-
 
 
 def build_and_train_model(x_train, y_train):
@@ -33,7 +28,6 @@ def build_and_train_model(x_train, y_train):
     model_pipeline.fit(x_train, y_train)
     print("Scikit-learn Linear Regression model trained successfully.")
     return model_pipeline
-
 
 
 if __name__ == "__main__":
@@ -222,7 +216,7 @@ if __name__ == "__main__":
     print("Kaggle Test DataFrame shape:", kaggle_test_data.shape)
 
     # Preprocess Kaggle test data based on the selected strategy
-    if False:#"Strategy 1: Drop Rows" in selected_strategy_name:
+    if False:  # "Strategy 1: Drop Rows" in selected_strategy_name:
         # Strategy 1: Drop rows with any missing feature values
         kaggle_test_clean = kaggle_test_data.dropna(subset=selected_features)
         print(f"Dropped rows with missing feature values in Kaggle test data: {kaggle_test_clean.shape}")
