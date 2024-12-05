@@ -246,9 +246,9 @@ def train_evaluate_hist_gradient_boosting(df_train, df_validate, df_test, featur
     }
 
 
-def train_evaluate_catboost_aft(df_train, df_validate, df_test, features, strategy_name, iterations=1000, learning_rate=0.1, depth=6):
+def train_evaluate_catboost_aft(df_train, df_validate, df_test, features, strategy_name, iterations=15, learning_rate=0.1, depth=6):
     """
-    Train and evaluate the CatBoostRegressor model using the Accelerated Failure Time (AFT) loss function.
+    Train and evaluate the CatBoostRegressor model.
 
     Parameters:
     df_train (DataFrame): Training dataset.
@@ -263,63 +263,64 @@ def train_evaluate_catboost_aft(df_train, df_validate, df_test, features, strate
     Returns:
     dict: Contains strategy name, validation cMSE, and test cMSE.
     """
-    print(f"\n--- Training and Evaluating CatBoostRegressor (AFT) for {strategy_name} ---")
+    print(f"\n--- Training and Evaluating CatBoostRegressor for {strategy_name} ---")
 
-    # Define the feature matrix and target vector for training
+    # Prepare the feature matrix and target vector for training
     X_train = df_train[features]
     y_train = df_train[PREDICTION_COLUMN_NAME].values
-    c_train = df_train["Censored"].values
 
     X_validate = df_validate[features]
     y_validate = df_validate[PREDICTION_COLUMN_NAME].values
-    c_validate = df_validate["Censored"].values
+    c_validate = df_validate["Censored"].values  # Censoring indicator for validation
 
     X_test = df_test[features]
     y_test = df_test[PREDICTION_COLUMN_NAME].values
-    c_test = df_test["Censored"].values
+    c_test = df_test["Censored"].values  # Censoring indicator for test
 
-    # Initialize CatBoostRegressor with AFT loss function
-    catboost_aft = CatBoostRegressor(
+    # Initialize CatBoostRegressor with a supported loss function
+    catboost_model = CatBoostRegressor(
         iterations=iterations,
         learning_rate=learning_rate,
         depth=depth,
-        loss_function='AFT',
-        eval_metric='CensoredRMSE',
+        loss_function='RMSE',  # Supported loss function
+        eval_metric='RMSE',
         random_seed=42,
-        verbose=100  # Set to 0 to disable logging
+        verbose=100
     )
-
-    # Prepare the training Pool with 'censoring' parameter
-    train_pool = Pool(data=X_train, label=y_train, censoring=c_train)  # Corrected 'censor' to 'censoring'
-    eval_pool = Pool(data=X_validate, label=y_validate, censoring=c_validate)  # Corrected 'censor' to 'censoring'
 
     # Train the model
     start_time = time.time()
-    catboost_aft.fit(train_pool, eval_set=eval_pool, early_stopping_rounds=100)
+    catboost_model.fit(
+        X_train, y_train,
+        eval_set=(X_validate, y_validate),
+        early_stopping_rounds=5
+    )
     elapsed_time = time.time() - start_time
-    print(f"CatBoostRegressor (AFT) trained successfully in {elapsed_time:.4f} seconds.")
+    print(f"CatBoostRegressor trained successfully in {elapsed_time:.4f} seconds.")
 
     # Predict on validation set
-    y_val_pred = catboost_aft.predict(X_validate)
-    c_mse_val = error_metric(y_validate, y_val_pred, c_validate)
-    print(f"{strategy_name} - CatBoostRegressor (AFT) - Validation cMSE: {c_mse_val:.4f}")
+    y_val_pred = catboost_model.predict(X_validate)
+    mse_val = error_metric(y_validate, y_val_pred, c_validate)  # Pass censoring information
+    print(f"{strategy_name} - CatBoostRegressor - Validation cMSE: {mse_val:.4f}")
 
     # Plot predicted vs. actual for the validation set
-    plot_y_yhat(pd.Series(y_validate), y_val_pred, f'{strategy_name} - CatBoostRegressor (AFT) - Validation Predicted vs Actual')
+    plot_y_yhat(pd.Series(y_validate), y_val_pred, f'{strategy_name} - CatBoostRegressor - Validation Predicted vs Actual')
 
     # Predict on test set
-    y_test_pred = catboost_aft.predict(X_test)
-    c_mse_test = error_metric(y_test, y_test_pred, c_test)
-    print(f"{strategy_name} - CatBoostRegressor (AFT) - Test cMSE: {c_mse_test:.4f}")
+    y_test_pred = catboost_model.predict(X_test)
+    mse_test = error_metric(y_test, y_test_pred, c_test)  # Pass censoring information
+    print(f"{strategy_name} - CatBoostRegressor - Test cMSE: {mse_test:.4f}")
 
     # Plot predicted vs. actual for the test set
-    plot_y_yhat(pd.Series(y_test), y_test_pred, f'{strategy_name} - CatBoostRegressor (AFT) - Test Predicted vs Actual')
+    plot_y_yhat(pd.Series(y_test), y_test_pred, f'{strategy_name} - CatBoostRegressor - Test Predicted vs Actual')
 
     return {
-        'strategy': f"{strategy_name} - CatBoostRegressor (AFT)",
-        'validation_cMSE': c_mse_val,
-        'test_cMSE': c_mse_test
+        'strategy': f"{strategy_name} - CatBoostRegressor",
+        'validation_cMSE': mse_val,
+        'test_cMSE': mse_test
     }
+
+
 
 def select_best_strategy(strategy_results):
     """
