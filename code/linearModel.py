@@ -295,9 +295,9 @@ if __name__ == "__main__":
 
     # Generate the next submission filename
     submission_filename = get_next_submission_filename(
-        base_path="data",
+        base_path=DATA_FILE_BASE_PATH,
         prefix="cMSE-baseline-submission",
-        extension=".csv"
+        extension=SUBMISSION_EXTENSION
     )
     print(f"Generated Submission Filename: {submission_filename}")
 

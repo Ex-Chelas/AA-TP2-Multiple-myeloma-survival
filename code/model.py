@@ -5,6 +5,9 @@ import missingno as msno
 import numpy as np
 import pandas as pd
 import seaborn as sns
+
+from sklearn.experimental import enable_iterative_imputer  # noqa
+from sklearn.impute import IterativeImputer, SimpleImputer, KNNImputer
 from sklearn.linear_model import Lasso, Ridge
 
 # Constants
@@ -578,3 +581,42 @@ def select_best_strategy(strategy_results):
     print(f"\nBest Strategy Selected: {best_strategy['strategy']} with Test cMSE: {best_strategy['test_cMSE']:.4f}")
 
     return best_strategy
+
+
+def impute_missing_values(df, strategy='mean', n_neighbors=5, max_iter=10):
+    """
+    Impute missing values in the DataFrame using specified imputation strategy.
+
+    Parameters:
+    df (DataFrame): The DataFrame with missing values.
+    strategy (str): The imputation strategy ('mean', 'median', 'most_frequent', 'constant', 'knn', 'iterative').
+    n_neighbors (int): Number of neighbors for KNNImputer (default=5).
+    max_iter (int): Maximum number of imputation iterations for IterativeImputer (default=10).
+
+    Returns:
+    DataFrame: The DataFrame with imputed values.
+    """
+    strategy = strategy.strip().lower()
+    print(f"\n--- Imputing Missing Values using {strategy.capitalize()} Imputer ---")
+
+    if strategy == 'mean':
+        imputer = SimpleImputer(strategy='mean')
+    elif strategy == 'median':
+        imputer = SimpleImputer(strategy='median')
+    elif strategy == 'most_frequent':
+        imputer = SimpleImputer(strategy='most_frequent')
+    elif strategy == 'constant':
+        imputer = SimpleImputer(strategy='constant', fill_value=0)
+    elif strategy == 'knn':
+        imputer = KNNImputer(n_neighbors=n_neighbors)
+    elif strategy == 'iterative':
+        imputer = IterativeImputer(max_iter=max_iter, random_state=0)
+    else:
+        raise ValueError(f"Unknown imputation strategy: '{strategy}'")
+
+    # Fit and transform the DataFrame
+    imputed_array = imputer.fit_transform(df)
+    imputed_df = pd.DataFrame(imputed_array, columns=df.columns)
+
+    print(f"Missing values imputed using {strategy.capitalize()} Imputer.")
+    return imputed_df
